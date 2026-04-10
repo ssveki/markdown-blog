@@ -4,6 +4,7 @@ import { parseMarkdown } from './parser.js';
 let posts = [];
 let postCache = new Map();
 
+// Работа с избранным (localStorage) 
 function getFavorites() {
     const fav = localStorage.getItem('favorites');
     return fav ? JSON.parse(fav) : [];
@@ -44,6 +45,7 @@ function toggleFavorite(id) {
     }
 }
 
+// Подсчёт времени чтения (200 слов/мин) 
 function countWords(md) {
     let text = md.replace(/```[\s\S]*?```/g, '');
     text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
@@ -52,6 +54,7 @@ function countWords(md) {
     return Math.max(1, Math.ceil(words / 200));
 }
 
+// Автогенерация оглавления из заголовков h2 
 function generateTOC(htmlString) {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = htmlString;
@@ -66,11 +69,13 @@ function generateTOC(htmlString) {
     return `<div class="toc"><p>Содержание</p><ul>${tocItems}</ul></div>`;
 }
 
+// Загружаем мета-данные статей при старте 
 async function loadMeta() {
     const res = await fetch('posts/meta.json');
     posts = await res.json();
 }
 
+// Отрисовка главной страницы (список карточек) 
 function renderHome(app) {
     app.innerHTML = `
         <div class="posts-grid">
@@ -86,17 +91,19 @@ function renderHome(app) {
     `;
 }
 
+// Страница "О блоге" 
 function renderAbout(app) {
     app.innerHTML = `
         <div class="post">
             <h1>О блоге</h1>
             <p>Этот блог создан в рамках учебного проекта. Все статьи написаны в формате <strong>Markdown</strong> и парсятся на лету.</p>
-            <p>Технологии: чистый JavaScript, fetch, History API (hash), собственный парсер Markdown.</p>
+            <p>Технологии: fetch, History API (hash), собственный парсер Markdown.</p>
             <p>Фишки: кэширование статей, избранное в localStorage, время чтения, оглавление.</p>
         </div>
     `;
 }
 
+// Страница избранных статей 
 async function renderFavorites(app) {
     const favIds = getFavorites();
     if (favIds.length === 0) {
@@ -119,16 +126,18 @@ async function renderFavorites(app) {
     `;
 }
 
+// Отрисовка страницы статьи 
 async function renderPost(app, id) {
     const postId = Number(id);
     const post = posts.find(p => p.id === postId);
     if (!post) {
-        app.innerHTML = '<p>Статья не найдена.</p>';
+        app.innerHTML = '<p>Статья не найдена</p>';
         return;
     }
 
-    app.innerHTML = '<div class="loading">Загрузка статьи...</div>';
+    app.innerHTML = '<p class="loading">Загрузка...</p>';
 
+    // Кэш: если уже загружена, берём из Map
     let cached = postCache.get(postId);
     if (!cached) {
         const res = await fetch(post.file);
@@ -145,8 +154,8 @@ async function renderPost(app, id) {
     const minutes = wordCount;
 
     app.innerHTML = `
-        <div class="post">
-            <button class="back-btn" id="backHomeBtn">← На главную</button>
+        <article class="post">
+            <button class="back-btn" id="backHomeBtn">← Назад</button>
             <div class="post-header">
                 <h1>${escapeHtml(post.title)}</h1>
                 <div class="post-meta">
@@ -158,10 +167,12 @@ async function renderPost(app, id) {
                 </div>
             </div>
             <div class="post-content">${fullHtml}</div>
-        </div>
+        </article>
     `;
 
+    // Обработчик кнопки "Назад"
     document.getElementById('backHomeBtn').addEventListener('click', () => navigate('#/'));
+    // Обработчик кнопки "Избранное"
     const favBtn = document.getElementById('favoriteBtn');
     if (favBtn) {
         favBtn.addEventListener('click', () => {
@@ -170,12 +181,14 @@ async function renderPost(app, id) {
     }
 }
 
+// Форматирование даты 
 function formatDate(dateStr) {
     return new Date(dateStr).toLocaleDateString('ru-RU', {
         year: 'numeric', month: 'long', day: 'numeric'
     });
 }
 
+// Экранирование HTML-символов
 function escapeHtml(str) {
     return str.replace(/[&<>]/g, function(m) {
         if (m === '&') return '&amp;';
@@ -185,6 +198,7 @@ function escapeHtml(str) {
     });
 }
 
+// Инициализация приложения
 async function init() {
     await loadMeta();
     addRoute('#/', renderHome);
